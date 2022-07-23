@@ -1,57 +1,35 @@
-const express = require('express');
-const path = require('path');
-const messageRouter = require('./notify');
-const fetch = require('node-fetch');
-// const body = require('body-parser');
-const bodyParser = require('body-parser');
-const app = express();
-const cors = require('cors');
-
+import express, { json } from 'express';
+import bodyParser from 'body-parser';
+import fetch, { Headers } from 'node-fetch';
+import cors from 'cors';
 const port = 3000;
+const app = express();
 
 app.use(cors());
 app.use(bodyParser.json());
-
-app.get('/', (_, res) => {
-  // res.sendFile(path.resolve((__dirname, "./src/index.html")));
+app.get('/', (req, res) => {
   res.send({
-    data: 'get Start',
+    data: 'get start Server',
   });
 });
-// app.get("/callback", (req, res) => {
-
-//     var _code = req.query._code;
-//     console.log(_code);
-
-//     // res.sendFile(path.resolve((__dirname, "./src/callback.html")));
-//     // res.json(_code);
-// });
-
-//GET /something?color1=red&color2=blue
-app.get('/authen', (req, res) => {
-  // res.send({
-  //   data: '5555 code',
-  // });
-  // req.query.color1 === 'red'  // true
-  // req.query.color2 === 'blue' // true
-  var _code = req.query._code;
+app.get('/callback', (req, res) => {
+  const _code = req.query.code;
   if (_code) {
-    // res.send({
-    //   data: 'nojhfyjtryjhrytsjhrthe',
-    // });
-    // fetchToken(_code)
-    //   .then((resp) => resp.json())
-    //   .then((result) => {
-    //     // res.json(result);
-    //     // console.log(result);
-    //     res.send('nojhfyjtryjhrytsjhrthe');
-    //   });
-
-    // res.send({
-    //   data: 'have code',
-    // });
-    const token = fetchToken(_code);
-    console.log(token);
+    fetchToken2(_code)
+      .then(async (resp) => resp.json())
+      .then((result) => {
+        _chexkStatus(result['access_token'])
+          .then(async (response) => response.text())
+          .then(async (respon) => {
+            console.log(JSON.stringify(respon));
+            res.send({
+              token: result['access_token'],
+              value: JSON.parse(respon),
+            });
+          })
+          .catch((error) => console.log('error _chexkStatus', error));
+      })
+      .catch((error) => console.log('error fetchToken2', error));
   } else {
     res.send({
       data: 'not have code',
@@ -59,36 +37,40 @@ app.get('/authen', (req, res) => {
   }
 });
 
-async function fetchToken(code) {
-  try {
-    const formData = new URLSearchParams();
-    formData.append('grant_type', 'authorization_code');
-    formData.append('code', code);
-    formData.append(
-      'redirect_uri',
-      'https://mybot-line-liff-2--4200.local.webcontainer.io/webhook'
-    );
-    formData.append('client_id', 'RrVsMV8tnyA2JVlaJPmKmM');
-    formData.append(
-      'client_secret',
-      'qDxQdhauQQGr3isIElpMS9CUW0rDPxPAkHL5GuYTccW'
-    );
-    const response = await fetch('https://notify-bot.line.me/oauth/token', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: formData,
-    });
-    if (!response.ok) {
-      throw new Error(`Error! status: ${response.status}`);
-    }
-    const result = await response.json();
-    return result;
-  } catch (err) {
-    console.log(err);
-  }
+function fetchToken2(code) {
+  const formData = new URLSearchParams();
+  formData.append('grant_type', 'authorization_code');
+  formData.append('code', code);
+  formData.append(
+    'redirect_uri',
+    'https://mybot-line-liff-2--4200.local.webcontainer.io/webhook'
+  );
+  formData.append('client_id', 'eHFCOdEgtDvG1TYuSpXWDU');
+  formData.append(
+    'client_secret',
+    'jL2IkKIFLrGswOh7czXo8GVGFM7DoDu9b6TduvIT5T8'
+  );
+  return fetch('https://notify-bot.line.me/oauth/token', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: formData,
+  });
 }
-// app.use(messageRouter);
+
+function _chexkStatus(_token) {
+  const meta = {
+    'Content-Type': 'text/xml',
+    Authorization: 'Bearer ' + _token,
+  };
+  const head = new Headers(meta);
+  var requestOptions = {
+    method: 'GET',
+    headers: head,
+    redirect: 'follow',
+  };
+  return fetch('https://notify-api.line.me/api/status', requestOptions);
+}
 
 app.listen(port, () => console.log(`Listening on port ${port}!`));
